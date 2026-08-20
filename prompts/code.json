@@ -1,0 +1,10 @@
+[
+  "Implement a thread-safe LRUCache class in Python with get/put, an OrderedDict backend, type hints, and docstrings. Output only code.",
+  "Write a TypeScript implementation of a generic binary search tree with insert, delete, find, and in-order traversal. Include interfaces and JSDoc. Output only code.",
+  "Write a Go function that merges N sorted integer channels into one sorted output channel, with a bounded worker pool and clean shutdown. Output only code.",
+  "Implement a Rust struct for a fixed-capacity ring buffer with push, pop, iteration, and full/empty handling. Include unit tests. Output only code.",
+  "Write a Python asyncio rate limiter using a token bucket, supporting burst capacity and fair waiting. Include type hints and docstrings. Output only code.",
+  "Implement a SQL schema plus indexed queries for an append-only event log with tenant isolation and time-range lookups. Output only SQL.",
+  "Write a React component in TypeScript for a paginated data table with sorting, loading states, and keyboard navigation. Output only code.",
+  "Implement a C function that parses a fixed-grammar CSV line into fields, handling quotes and escapes, with bounds checking. Output only code."
+]

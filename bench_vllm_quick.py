@@ -152,17 +152,37 @@ def one_request(
         return {"error": str(exc), "total_ms": (time.perf_counter() - started) * 1000}
 
 
+def load_prompts(path):
+    """Read a prompt set from a JSON array or a newline-delimited file.
+
+    Acceptance length — and therefore decode throughput — depends heavily on how
+    predictable the output is, so comparing workloads requires swapping the
+    prompt set while holding every other setting constant.
+    """
+    with open(path) as f:
+        raw = f.read().strip()
+    if raw.startswith("["):
+        prompts = json.loads(raw)
+    else:
+        prompts = [line.strip() for line in raw.splitlines() if line.strip()]
+    if not prompts:
+        raise ValueError(f"No prompts found in {path}")
+    return prompts
+
+
 def wave(
     base_url,
     model,
     concurrency,
     max_tokens,
+    prompts=None,
     require_usage=False,
     request_timeout=DEFAULT_REQUEST_TIMEOUT_SECONDS,
     wave_timeout=DEFAULT_WAVE_TIMEOUT_SECONDS,
 ):
     started = time.perf_counter()
-    prompts = [PROMPTS[i % len(PROMPTS)] for i in range(concurrency)]
+    prompt_set = prompts or PROMPTS
+    prompts = [prompt_set[i % len(prompt_set)] for i in range(concurrency)]
     pool = ThreadPoolExecutor(max_workers=concurrency)
     futures = {
         pool.submit(
@@ -277,6 +297,11 @@ def main():
     ap.add_argument("--request-timeout", type=float, default=DEFAULT_REQUEST_TIMEOUT_SECONDS)
     ap.add_argument("--wave-timeout", type=float, default=DEFAULT_WAVE_TIMEOUT_SECONDS)
     ap.add_argument(
+        "--prompts-file",
+        default=None,
+        help="JSON array or newline-delimited prompts; defaults to the built-in mix",
+    )
+    ap.add_argument(
         "--require-usage",
         action="store_true",
         help="Reject streams unless usage.completion_tokens is reported",
@@ -290,11 +315,13 @@ def main():
     if args.output is None:
         args.output = default_output_path(args.model)
 
+    prompts = load_prompts(args.prompts_file) if args.prompts_file else PROMPTS
+
     print("warmup")
     warmup = one_request(
         args.base_url,
         args.model,
-        PROMPTS[0],
+        prompts[0],
         args.max_tokens,
         request_timeout=args.request_timeout,
     )
@@ -310,9 +337,10 @@ def main():
                 args.model,
                 c,
                 args.max_tokens,
-                args.require_usage,
-                args.request_timeout,
-                args.wave_timeout,
+                prompts=prompts,
+                require_usage=args.require_usage,
+                request_timeout=args.request_timeout,
+                wave_timeout=args.wave_timeout,
             )
             result["repeat"] = repeat + 1
             results.append(result)
@@ -321,6 +349,9 @@ def main():
         "schema_version": 1,
         "script_version": SCRIPT_VERSION,
         "config": vars(args),
+        # The prompt text is the workload. Record it so a rate is never read
+        # without knowing what produced it.
+        "prompt_set": prompts,
         "warmup": warmup,
         "results": results,
         "summary": summarize_results(results),

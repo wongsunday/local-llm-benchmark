@@ -29,6 +29,43 @@ durable comparison artifact, under a separate documented baseline path. Add
 `usage.completion_tokens`; otherwise the script explicitly marks an SSE-event
 count fallback as approximate.
 
+## Prompt sets: the workload is a variable, not a constant
+
+Decode throughput on a speculative-decoding server is roughly
+`acceptance_length / pass_time`. Pass time is near-constant, but acceptance
+depends entirely on how predictable the output is — so the same server can
+differ by more than 2x between workloads. A single "tok/s" number is not
+meaningful without the prompt set that produced it.
+
+`--prompts-file` takes a JSON array or a newline-delimited file:
+
+```bash
+python3 bench_vllm_quick.py \
+  --base-url http://127.0.0.1:8000/v1 \
+  --model your-model \
+  --max-tokens 512 --concurrency 1 --repeats 3 --require-usage \
+  --prompts-file prompts/code.json
+```
+
+Two reference sets ship here, each with eight prompts so waves above
+concurrency 1 do not repeat a single prompt:
+
+| Set | Workload | Typical acceptance |
+|---|---|---|
+| `prompts/code.json` | code generation across several languages | high — boilerplate and closing tokens are easy to draft |
+| `prompts/prose.json` | reflective long-form prose | low — roughly half of code |
+
+The resolved prompt set is recorded in the result JSON as `prompt_set`, so a
+stored rate always carries the workload that produced it.
+
+### Also record thinking mode
+
+On models with a toggleable reasoning phase, reasoning tokens accept far worse
+than code, and the harness inherits whatever the server defaults to. Observed
+gaps of ~20% on an otherwise identical configuration are normal. Record the
+thinking state next to every number; the harness has no flag for it, because it
+belongs to the server, not the measurement.
+
 Run the offline tests without a live model server:
 
 ```bash
